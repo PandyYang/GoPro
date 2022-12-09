@@ -3,6 +3,7 @@ package gee
 import (
 	"log"
 	"net/http"
+	"strings"
 )
 
 // RouterGroup engine上包装了一层RouteGroup
@@ -76,15 +77,17 @@ func (engine *Engine) Run(addr string) (err error) {
 }
 
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var midllewares []HandlerFunc
+	for _, group := range engine.groups {
+		if strings.HasPrefix(req.URL.Path, group.prefix) {
+			midllewares = append(midllewares, group.middlewares...)
+		}
+	}
 	c := newContext(w, req)
+	c.handlers = midllewares
 	engine.router.handle(c)
 }
 
-func newContext(w http.ResponseWriter, req *http.Request) *Context {
-	return &Context{
-		Writer: w,
-		Req:    req,
-		Path:   req.URL.Path,
-		Method: req.Method,
-	}
+func (group *RouterGroup) Use(middlewares ...HandlerFunc) {
+	group.middlewares = append(group.middlewares, middlewares...)
 }
